@@ -665,14 +665,14 @@ class QuerySet(object):
         return obj
 
     def extra(self, select=None, where=None, params=None, tables=None,
-              order_by=None, select_params=None):
+              order_by=None, select_params=None, join=None):
         """
         Adds extra SQL fragments to the query.
         """
         assert self.query.can_filter(), \
                 "Cannot change a query once a slice has been taken"
         clone = self._clone()
-        clone.query.add_extra(select, select_params, where, params, tables, order_by)
+        clone.query.add_extra(select, select_params, where, params, tables, order_by, join)
         return clone
 
     def reverse(self):
