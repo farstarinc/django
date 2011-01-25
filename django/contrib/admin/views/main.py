@@ -4,6 +4,7 @@ from django.contrib.admin.util import quote, get_fields_from_path
 from django.core.exceptions import SuspiciousOperation
 from django.core.paginator import Paginator, InvalidPage
 from django.db import models
+from django.utils.datastructures import SortedDict
 from django.utils.encoding import force_unicode, smart_str
 from django.utils.translation import ugettext
 from django.utils.http import urlencode
@@ -61,7 +62,7 @@ class ChangeList(object):
             self.list_editable = ()
         else:
             self.list_editable = list_editable
-        self.order_field, self.order_type = self.get_ordering()
+        self.ordering = self.get_ordering()
         self.query = request.GET.get(SEARCH_VAR, '')
         self.query_set = self.get_query_set()
         self.get_results(request)
@@ -137,36 +138,47 @@ class ChangeList(object):
         # those exist, order descending by ID by default. Finally, look for
         # manually-specified ordering from the query string.
         ordering = self.model_admin.ordering or lookup_opts.ordering or ['-' + lookup_opts.pk.name]
-
-        if ordering[0].startswith('-'):
-            order_field, order_type = ordering[0][1:], 'desc'
-        else:
-            order_field, order_type = ordering[0], 'asc'
+        
         if ORDER_VAR in params:
-            try:
-                field_name = self.list_display[int(params[ORDER_VAR])]
+            # Clear ordering and used params
+            ordering = []
+            order_params = params[ORDER_VAR].split(',')
+            for p in order_params:
                 try:
-                    f = lookup_opts.get_field(field_name)
-                except models.FieldDoesNotExist:
-                    # See whether field_name is a name of a non-field
-                    # that allows sorting.
+                    none, pfx, idx = p.rpartition('-')
+                    field_name = self.list_display[int(idx)]
                     try:
-                        if callable(field_name):
-                            attr = field_name
-                        elif hasattr(self.model_admin, field_name):
-                            attr = getattr(self.model_admin, field_name)
-                        else:
-                            attr = getattr(self.model, field_name)
-                        order_field = attr.admin_order_field
-                    except AttributeError:
-                        pass
-                else:
-                    order_field = f.name
-            except (IndexError, ValueError):
-                pass # Invalid ordering specified. Just use the default.
-        if ORDER_TYPE_VAR in params and params[ORDER_TYPE_VAR] in ('asc', 'desc'):
-            order_type = params[ORDER_TYPE_VAR]
-        return order_field, order_type
+                        f = lookup_opts.get_field(field_name)
+                    except models.FieldDoesNotExist:
+                        # See whether field_name is a name of a non-field
+                        # that allows sorting.
+                        try:
+                            if callable(field_name):
+                                attr = field_name
+                            elif hasattr(self.model_admin, field_name):
+                                attr = getattr(self.model_admin, field_name)
+                            else:
+                                attr = getattr(self.model, field_name)
+                            field_name = attr.admin_order_field
+                        except AttributeError:
+                            continue # Invalid ordering field. Skip it.
+                    else:
+                        field_name = f.name
+
+                    ordering.append(pfx + field_name)
+
+                except (IndexError, ValueError):
+                    pass # Invalid ordering specified. Skip it.
+
+        return ordering
+    
+    def get_ordering_fields(self):
+        # Returns a SortedDict of ordering fields and asc/desc
+        ordering_fields = SortedDict()
+        for o in self.ordering:
+            none, t, f = o.rpartition('-')
+            ordering_fields[f] = t == '-' and 'desc' or 'asc'
+        return ordering_fields
 
     def get_query_set(self):
         qs = self.root_query_set
@@ -226,8 +238,8 @@ class ChangeList(object):
                             break
 
         # Set ordering.
-        if self.order_field:
-            qs = qs.order_by('%s%s' % ((self.order_type == 'desc' and '-' or ''), self.order_field))
+        if self.ordering:
+            qs = qs.order_by(*self.ordering)
 
         # Apply keyword searches.
         def construct_search(field_name):

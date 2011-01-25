@@ -110,14 +110,44 @@ def result_headers(cl):
 
         th_classes = []
         new_order_type = 'asc'
-        if field_name == cl.order_field or admin_order_field == cl.order_field:
-            th_classes.append('sorted %sending' % cl.order_type.lower())
-            new_order_type = {'asc': 'desc', 'desc': 'asc'}[cl.order_type.lower()]
+        ordering_fields = cl.get_ordering_fields()
+        sort_pos = ''
+        if field_name in ordering_fields.keys() or admin_order_field in ordering_fields.keys():
+            if not field_name in ordering_fields.keys():
+                field_name = admin_order_field
+            order_type = ordering_fields.get(field_name).lower()
+            sort_pos = ordering_fields.keys().index(field_name) + 1
+            th_classes.append('sorted %sending' % order_type)
+            new_order_type = {'':'asc', 'asc': 'desc', 'desc': ''}[order_type]
+        
+        # build new ordering param
+        o_list = []
+        for f in ordering_fields.keys():
+            try:
+                n = cl.list_display.index(f)
+            except ValueError:
+                continue
+ 
+            if f == field_name:
+                if new_order_type == '': 
+                    continue
+                t = new_order_type
+            else:
+                t = ordering_fields.get(f)
+
+            o_list.append((t=='desc' and '-' or '') + str(n))
+        
+        if field_name not in ordering_fields.keys() and new_order_type:
+            n = cl.list_display.index(field_name)
+            o_list.append((new_order_type=='desc' and '-' or '') + str(n))
+
+        o_list = ','.join(o_list)
 
         yield {
             "text": header,
             "sortable": True,
-            "url": cl.get_query_string({ORDER_VAR: i, ORDER_TYPE_VAR: new_order_type}),
+            "sort_pos": sort_pos > 0 and len(ordering_fields) > 0 and unicode(sort_pos) or '',
+            "url": cl.get_query_string({ORDER_VAR: o_list}),
             "class_attrib": mark_safe(th_classes and ' class="%s"' % ' '.join(th_classes) or '')
         }
 
