@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models.fields import FieldDoesNotExist
 from django.forms.models import (BaseModelForm, BaseModelFormSet, fields_for_model,
     _get_foreign_key)
+from django.contrib.admin.filterspecs import FilterSpec, FieldFilterSpec
 from django.contrib.admin.util import get_fields_from_path, NotRelationField
 from django.contrib.admin.options import flatten_fieldsets, BaseModelAdmin
 from django.contrib.admin.options import HORIZONTAL, VERTICAL
@@ -49,21 +50,43 @@ def validate(cls, model):
             fetch_attr(cls, model, opts, 'list_display_links[%d]' % idx, field)
             if field not in cls.list_display:
                 raise ImproperlyConfigured("'%s.list_display_links[%d]'"
-                        "refers to '%s' which is not defined in 'list_display'."
+                        " refers to '%s' which is not defined in 'list_display'."
                         % (cls.__name__, idx, field))
 
     # list_filter
     if hasattr(cls, 'list_filter'):
         check_isseq(cls, 'list_filter', cls.list_filter)
-        for idx, fpath in enumerate(cls.list_filter):
-            try:
-                get_fields_from_path(model, fpath)
-            except (NotRelationField, FieldDoesNotExist), e:
-                raise ImproperlyConfigured(
-                    "'%s.list_filter[%d]' refers to '%s' which does not refer to a Field." % (
-                        cls.__name__, idx, fpath
-                    )
-                )
+        for idx, item in enumerate(cls.list_filter):
+            # There are three methods of specifying a filter:
+            #   1: 'field' - a simple field filter, poss. w/ relationships (eg, 'field__rel')
+            #   2: ('field', SomeFieldFilterSpec) - a field-based filter spec
+            #   3: SomeFilterSpec - a non-field filter spec
+            if callable(item) and not isinstance(item, models.Field):
+                # If item is option 3, it should be a FilterSpec, but not a FieldFilterSpec
+                if not issubclass(item, FilterSpec) or issubclass(item, FieldFilterSpec):
+                    raise ImproperlyConfigured("'%s.list_filter[%d]' is '%s'"
+                            " which is not of type FilterSpec." 
+                            % (cls.__name__, idx, item))
+            else:
+                try:
+                    # Check for option #2 (tuple)
+                    field, factory = item
+                except (TypeError, ValueError):
+                    # item is option #1
+                    field = item
+                else:
+                    # item is option #2
+                    if not issubclass(factory, FieldFilterSpec):
+                        raise ImproperlyConfigured("'%s.list_filter[%d][1]'"
+                            " refers to '%s' which is not of type FieldFilterSpec."
+                            % (cls.__name__, idx, factory.__name__))
+                # Validate the field string
+                try:
+                    get_fields_from_path(model, field)
+                except (NotRelationField, FieldDoesNotExist), e:
+                    raise ImproperlyConfigured("'%s.list_filter[%d]' refers to '%s'"
+                            " which does not refer to a Field."
+                            % (cls.__name__, idx, field))
 
     # list_per_page = 100
     if hasattr(cls, 'list_per_page') and not isinstance(cls.list_per_page, int):
