@@ -54,12 +54,13 @@
     <!-- END Header -->
     {% block breadcrumbs %}<div class="breadcrumbs"><a href="/">{% trans 'Home' %}</a>{% if title %} &rsaquo; {{ title }}{% endif %}</div>{% endblock %}
     {% endif %}
-
+        {% block messages %}
         {% if messages %}
         <ul class="messagelist">{% for message in messages %}
           <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
 	{% endfor %}</ul>
         {% endif %}
+        {% endblock %}
 
     <!-- Content -->
     <div id="content" class="{% block coltype %}colM{% endblock %}">
