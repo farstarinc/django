@@ -76,23 +76,29 @@ class RelatedFilterSpec(FilterSpec):
             self.lookup_title = f.verbose_name # use field name
         rel_name = other_model._meta.pk.name
         self.lookup_kwarg = '%s__%s__exact' % (self.field_path, rel_name)
+        self.lookup_null_kwarg = '%s__isnull' % (f.name)
         self.lookup_val = request.GET.get(self.lookup_kwarg, None)
+        self.lookup_null = request.GET.get(self.lookup_null_kwarg, None)
         self.lookup_choices = f.get_choices(include_blank=False)
 
     def has_output(self):
-        return len(self.lookup_choices) > 1
+        return len(self.lookup_choices) > 0 if self.field.null else 1
 
     def title(self):
         return self.lookup_title
 
     def choices(self, cl):
-        yield {'selected': self.lookup_val is None,
-               'query_string': cl.get_query_string({}, [self.lookup_kwarg]),
+        yield {'selected': self.lookup_val is None and not self.lookup_null,
+               'query_string': cl.get_query_string({}, [self.lookup_kwarg, self.lookup_null_kwarg]),
                'display': _('All')}
         for pk_val, val in self.lookup_choices:
             yield {'selected': self.lookup_val == smart_unicode(pk_val),
-                   'query_string': cl.get_query_string({self.lookup_kwarg: pk_val}),
+                   'query_string': cl.get_query_string({self.lookup_kwarg: pk_val}, [self.lookup_null_kwarg]),
                    'display': val}
+        if self.field.null:
+            yield {'selected': self.lookup_null,
+                   'query_string': cl.get_query_string({self.lookup_null_kwarg: 'True'}, [self.lookup_kwarg]),
+                   'display': '(%s)' % _('None')}
 
 FilterSpec.register(lambda f: (
         hasattr(f, 'rel') and bool(f.rel) or
@@ -193,6 +199,7 @@ class AllValuesFilterSpec(FilterSpec):
                                                   model_admin,
                                                   field_path=field_path)
         self.lookup_val = request.GET.get(self.field_path, None)
+        self.lookup_null = request.GET.get(f.name + '__isnull', None)
         parent_model, reverse_path = reverse_field_path(model, field_path)
         queryset = parent_model._default_manager.all()
         # optional feature: limit choices base on existing relationships
@@ -208,12 +215,17 @@ class AllValuesFilterSpec(FilterSpec):
         return self.field.verbose_name
 
     def choices(self, cl):
-        yield {'selected': self.lookup_val is None,
-               'query_string': cl.get_query_string({}, [self.field_path]),
+        yield {'selected': self.lookup_val is None and not self.lookup_null,
+               'query_string': cl.get_query_string({}, [self.field.name, self.field.name + '__isnull']),
                'display': _('All')}
         for val in self.lookup_choices:
-            val = smart_unicode(val[self.field.name])
-            yield {'selected': self.lookup_val == val,
-                   'query_string': cl.get_query_string({self.field_path: val}),
-                   'display': val}
+            if val[self.field.name] is None:
+                yield {'selected': self.lookup_null,
+                       'query_string': cl.get_query_string({self.field.name + '__isnull': 'True'}, [self.field.name]),
+                       'display': '(%s)' % _('None')}
+            else:
+                val = smart_unicode(val[self.field.name])
+                yield {'selected': self.lookup_val == val,
+                       'query_string': cl.get_query_string({self.field.name: val}, [self.field.name + '__isnull']),
+                       'display': val}
 FilterSpec.register(lambda f: True, AllValuesFilterSpec)
