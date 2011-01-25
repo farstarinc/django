@@ -237,7 +237,7 @@ class EmailMessage(object):
         Returns a list of all recipients of the email (includes direct
         addressees as well as Cc and Bcc entries).
         """
-        return self.to + self.cc + self.bcc
+        return list(self.to) + list(self.cc) + list(self.bcc)
 
     def send(self, fail_silently=False):
         """Sends the email message."""
