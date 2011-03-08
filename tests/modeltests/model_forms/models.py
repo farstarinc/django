@@ -39,6 +39,9 @@ class Category(models.Model):
 class Writer(models.Model):
     name = models.CharField(max_length=50, help_text='Use both first and last names.')
 
+    class Meta:
+        ordering = ('name',)
+
     def __unicode__(self):
         return self.name
 
@@ -166,12 +169,15 @@ class ArticleStatus(models.Model):
     status = models.CharField(max_length=2, choices=ARTICLE_STATUS_CHAR, blank=True, null=True)
 
 class Inventory(models.Model):
-   barcode = models.PositiveIntegerField(unique=True)
-   parent = models.ForeignKey('self', to_field='barcode', blank=True, null=True)
-   name = models.CharField(blank=False, max_length=20)
+    barcode = models.PositiveIntegerField(unique=True)
+    parent = models.ForeignKey('self', to_field='barcode', blank=True, null=True)
+    name = models.CharField(blank=False, max_length=20)
 
-   def __unicode__(self):
-      return self.name
+    class Meta:
+        ordering = ('name',)
+
+    def __unicode__(self):
+        return self.name
 
 class Book(models.Model):
     title = models.CharField(max_length=40)
@@ -546,8 +552,8 @@ fields with the 'choices' attribute are represented by a ChoiceField.
 <tr><th>Pub date:</th><td><input type="text" name="pub_date" /></td></tr>
 <tr><th>Writer:</th><td><select name="writer">
 <option value="" selected="selected">---------</option>
-<option value="...">Mike Royko</option>
 <option value="...">Bob Woodward</option>
+<option value="...">Mike Royko</option>
 </select></td></tr>
 <tr><th>Article:</th><td><textarea rows="10" cols="40" name="article"></textarea></td></tr>
 <tr><th>Status:</th><td><select name="status">
@@ -601,8 +607,8 @@ inserted as 'initial' data in each Field.
 <li>Pub date: <input type="text" name="pub_date" value="1988-01-04" /></li>
 <li>Writer: <select name="writer">
 <option value="">---------</option>
-<option value="..." selected="selected">Mike Royko</option>
 <option value="...">Bob Woodward</option>
+<option value="..." selected="selected">Mike Royko</option>
 </select></li>
 <li>Article: <textarea rows="10" cols="40" name="article">Hello.</textarea></li>
 <li>Status: <select name="status">
@@ -664,8 +670,8 @@ Add some categories and test the many-to-many form output.
 <li>Pub date: <input type="text" name="pub_date" value="1988-01-04" /></li>
 <li>Writer: <select name="writer">
 <option value="">---------</option>
-<option value="..." selected="selected">Mike Royko</option>
 <option value="...">Bob Woodward</option>
+<option value="..." selected="selected">Mike Royko</option>
 </select></li>
 <li>Article: <textarea rows="10" cols="40" name="article">Hello.</textarea></li>
 <li>Status: <select name="status">
@@ -688,8 +694,8 @@ Initial values can be provided for model forms
 <li>Pub date: <input type="text" name="pub_date" /></li>
 <li>Writer: <select name="writer">
 <option value="" selected="selected">---------</option>
-<option value="...">Mike Royko</option>
 <option value="...">Bob Woodward</option>
+<option value="...">Mike Royko</option>
 </select></li>
 <li>Article: <textarea rows="10" cols="40" name="article"></textarea></li>
 <li>Status: <select name="status">
@@ -804,8 +810,8 @@ the data in the database when the form is instantiated.
 <li>Pub date: <input type="text" name="pub_date" /></li>
 <li>Writer: <select name="writer">
 <option value="" selected="selected">---------</option>
-<option value="...">Mike Royko</option>
 <option value="...">Bob Woodward</option>
+<option value="...">Mike Royko</option>
 </select></li>
 <li>Article: <textarea rows="10" cols="40" name="article"></textarea></li>
 <li>Status: <select name="status">
@@ -829,9 +835,9 @@ the data in the database when the form is instantiated.
 <li>Pub date: <input type="text" name="pub_date" /></li>
 <li>Writer: <select name="writer">
 <option value="" selected="selected">---------</option>
-<option value="...">Mike Royko</option>
 <option value="...">Bob Woodward</option>
 <option value="...">Carl Bernstein</option>
+<option value="...">Mike Royko</option>
 </select></li>
 <li>Article: <textarea rows="10" cols="40" name="article"></textarea></li>
 <li>Status: <select name="status">
@@ -1053,10 +1059,10 @@ True
 >>> print form.as_p()
 <p><label for="id_writer">Writer:</label> <select name="writer" id="id_writer">
 <option value="" selected="selected">---------</option>
-<option value="...">Mike Royko</option>
 <option value="...">Bob Woodward</option>
 <option value="...">Carl Bernstein</option>
 <option value="...">Joe Better</option>
+<option value="...">Mike Royko</option>
 </select></p>
 <p><label for="id_age">Age:</label> <input type="text" name="age" id="id_age" /></p>
 
@@ -1073,10 +1079,10 @@ True
 >>> print form.as_p()
 <p><label for="id_writer">Writer:</label> <select name="writer" id="id_writer">
 <option value="">---------</option>
-<option value="...">Mike Royko</option>
 <option value="..." selected="selected">Bob Woodward</option>
 <option value="...">Carl Bernstein</option>
 <option value="...">Joe Better</option>
+<option value="...">Mike Royko</option>
 </select></p>
 <p><label for="id_age">Age:</label> <input type="text" name="age" value="65" id="id_age" /></p>
 
@@ -1527,8 +1533,8 @@ ValidationError: [u'Select a valid choice. z is not one of the available choices
 ...     print choice
 (u'', u'---------')
 (86, u'Apple')
-(22, u'Pear')
 (87, u'Core')
+(22, u'Pear')
 
 >>> class InventoryForm(ModelForm):
 ...     class Meta:
@@ -1538,8 +1544,8 @@ ValidationError: [u'Select a valid choice. z is not one of the available choices
 <select name="parent" id="id_parent">
 <option value="">---------</option>
 <option value="86" selected="selected">Apple</option>
-<option value="22">Pear</option>
 <option value="87">Core</option>
+<option value="22">Pear</option>
 </select>
 
 >>> data = model_to_dict(core)
@@ -1568,8 +1574,8 @@ ValidationError: [u'Select a valid choice. z is not one of the available choices
 >>> for choice in field.choices:
 ...     print choice
 (86, u'Apple')
-(22, u'Pear')
 (87, u'Core')
+(22, u'Pear')
 >>> field.clean([86])
 [<Inventory: Apple>]
 
@@ -1579,7 +1585,7 @@ ValidationError: [u'Select a valid choice. z is not one of the available choices
 >>> form.is_valid()
 True
 >>> form.cleaned_data
-{'items': [<Inventory: Pear>, <Inventory: Core>]}
+{'items': [<Inventory: Core>, <Inventory: Pear>]}
 
 # Model field that returns None to exclude itself with explicit fields ########
 
