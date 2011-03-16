@@ -326,6 +326,20 @@ table thead th.descending a {
     background: url(../img/admin/arrow-down.gif) right .4em no-repeat;
 }
 
+table thead th.sorted a span.text {
+   display: block;
+   float: left;
+}
+table thead th.sorted a span.sort_pos {
+   display: block;
+   float: right;
+   font-size: .6em;
+}
+table thead th.sorted a span.clear{
+   display: block;
+   clear: both;
+}
+
 /* ORDERABLE TABLES */
 
 table.orderable tbody tr td:hover {
