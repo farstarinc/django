@@ -201,7 +201,7 @@ class AdminViewBasicTest(TestCase):
         Ensure we can sort on a list_display field that is a callable
         (column 2 is callable_year in ArticleAdmin)
         """
-        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'ot': 'asc', 'o': 2})
+        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'o': '2'})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(
             response.content.index('Oldest content') < response.content.index('Middle content') and
@@ -214,7 +214,7 @@ class AdminViewBasicTest(TestCase):
         Ensure we can sort on a list_display field that is a Model method
         (colunn 3 is 'model_year' in ArticleAdmin)
         """
-        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'ot': 'dsc', 'o': 3})
+        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'o': '-3'})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(
             response.content.index('Newest content') < response.content.index('Middle content') and
@@ -227,7 +227,7 @@ class AdminViewBasicTest(TestCase):
         Ensure we can sort on a list_display field that is a ModelAdmin method
         (colunn 4 is 'modeladmin_year' in ArticleAdmin)
         """
-        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'ot': 'asc', 'o': 4})
+        response = self.client.get('/test_admin/%s/admin_views/article/' % self.urlbit, {'o': '4'})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(
             response.content.index('Oldest content') < response.content.index('Middle content') and
