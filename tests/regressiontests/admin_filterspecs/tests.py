@@ -3,7 +3,9 @@ from django.test import TestCase
 from django.test.client import RequestFactory
 from django.contrib.auth.models import User
 from django.contrib import admin
+from django.contrib.admin.filterspecs import FilterSpec
 from django.contrib.admin.views.main import ChangeList
+from django.utils.datastructures import SortedDict
 from django.utils.encoding import force_unicode
 
 from models import Book
@@ -167,9 +169,57 @@ class FilterSpecsTests(TestCase):
         self.assertEqual(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?books_contributed__id__exact=%d' % self.django_book.pk)
 
+    
+    def test_custom_FilterSpec(self):
+        modeladmin = BookAdmin(Book, admin.site)
+        request = self.request_factory.get('/', {'about_django':'1'})
+        changelist = self.get_changelist(request, Book, modeladmin)
+
+        # Make sure changelist.get_query_set() does not raise IncorrectLookupParameters
+        queryset = changelist.get_query_set()
+
+        # Make sure correct choice is selected
+        filterspec = changelist.get_filters(request)[0][3]
+        self.assertEqual(force_unicode(filterspec.title()), u'By subject')
+        choices = list(filterspec.choices(changelist))
+        self.assertEqual(choices[0]['selected'], True)
+        self.assertEqual(choices[0]['query_string'], '?about_django=1')
+
+
 class CustomUserAdmin(UserAdmin):
     list_filter = ('books_authored', 'books_contributed')
 
+class DjangoBookFilterSpec(FilterSpec):
+    "Example filterspec that filter books by arbitrary subjects based on the title"
+    def __init__(self, request, *args, **kwargs):
+        super(DjangoBookFilterSpec, self).__init__(request, *args, **kwargs)
+        self.links = SortedDict((
+            ('Books about Django', 'about_django'),
+            ('Books about Music', 'about_music'),
+            ('All', ''),
+        ))
+
+    def title(self):
+        return 'By subject'
+
+    def consumed_params(self):
+        return self.links.values()
+
+    def choices(self, cl):
+        selected = [v for v in self.links.values() if self.params.has_key(v)]
+        for title, key in self.links.items():
+            p = {key: 1} if key else None
+            yield {'selected': self.params.has_key(key) or (not key and not selected),
+                   'query_string': cl.get_query_string(p, selected),
+                   'display': title}
+    
+    def get_query_set(self, cls, qs):
+        if self.params.has_key('about_django'):
+            return qs.filter(title__icontains='django')
+        if self.params.has_key('about_jazz'):
+            return qs.filter(title__icontains='gypsy')
+        return qs
+
 class BookAdmin(admin.ModelAdmin):
-    list_filter = ('year', 'author', 'contributors')
+    list_filter = ('year', 'author', 'contributors', DjangoBookFilterSpec)
     order_by = '-id'

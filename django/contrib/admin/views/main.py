@@ -1,4 +1,4 @@
-from django.contrib.admin.filterspecs import FilterSpec
+from django.contrib.admin.filterspecs import FilterSpec, FieldFilterSpec
 from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.admin.util import quote, get_fields_from_path
 from django.core.exceptions import SuspiciousOperation
@@ -60,22 +60,32 @@ class ChangeList(object):
             self.list_editable = ()
         else:
             self.list_editable = list_editable
+        self.filter_specs, self.has_filters = self.get_filters(request)
         self.ordering = self.get_ordering()
         self.query = request.GET.get(SEARCH_VAR, '')
         self.query_set = self.get_query_set()
         self.get_results(request)
         self.title = (self.is_popup and ugettext('Select %s') % force_unicode(self.opts.verbose_name) or ugettext('Select %s to change') % force_unicode(self.opts.verbose_name))
-        self.filter_specs, self.has_filters = self.get_filters(request)
         self.pk_attname = self.lookup_opts.pk.attname
 
     def get_filters(self, request):
         filter_specs = []
         if self.list_filter:
-            for filter_name in self.list_filter:
-                field = get_fields_from_path(self.model, filter_name)[-1]
-                spec = FilterSpec.create(field, request, self.params,
-                                         self.model, self.model_admin,
-                                         field_path=filter_name)
+            for item in self.list_filter:
+                if callable(item):
+                    spec = item(request, self.params, self.model, self.model_admin)
+                else:
+                    field_path = None
+                    try:
+                        field, factory = item
+                    except (TypeError, ValueError):
+                        field, factory = item, FieldFilterSpec.create
+                    if not isinstance(field, models.Field):
+                        field_path = field
+                        field = get_fields_from_path(self.model, field_path)[-1]
+                    spec = factory(field, request, self.params, self.model, 
+                            self.model_admin, field_path=field_path)
+                
                 if spec and spec.has_output():
                     filter_specs.append(spec)
         return filter_specs, bool(filter_specs)
@@ -178,6 +188,19 @@ class ChangeList(object):
             ordering_fields[f] = t == '-' and 'desc' or 'asc'
         return ordering_fields
 
+    def apply_filter_specs(self, qs, lookup_params): 
+        for filter_spec in self.filter_specs: 
+            new_qs = filter_spec.get_query_set(self, qs) 
+            if new_qs is not None and new_qs is not False: 
+                qs = new_qs 
+                # Only consume params if we got a new queryset 
+                for param in filter_spec.consumed_params(): 
+                    try: 
+                        del lookup_params[param] 
+                    except KeyError: 
+                        pass 
+        return qs 
+
     def get_query_set(self):
         use_distinct = False
 
@@ -186,6 +209,11 @@ class ChangeList(object):
         for i in (ALL_VAR, ORDER_VAR, ORDER_TYPE_VAR, SEARCH_VAR, IS_POPUP_VAR, TO_FIELD_VAR):
             if i in lookup_params:
                 del lookup_params[i]
+        key = ''
+
+        # Let every filter spec modify the qs and params to its liking
+        qs = self.apply_filter_specs(qs, lookup_params) 
+
         for key, value in lookup_params.items():
             if not isinstance(key, str):
                 # 'key' will be used as a keyword argument later, so Python
@@ -221,6 +249,7 @@ class ChangeList(object):
                 raise SuspiciousOperation(
                     "Filtering by %s not allowed" % key
                 )
+
 
         # Apply lookup parameters from the query string.
         try:
