@@ -145,6 +145,7 @@ class Query(object):
 
         self.extra_tables = ()
         self.extra_order_by = ()
+        self.extra_join = ()
 
         # A tuple that is a set of model field names and either True, if these
         # are the fields to defer, or False if these are the only fields to
@@ -279,6 +280,7 @@ class Query(object):
             obj._extra_select_cache = self._extra_select_cache.copy()
         obj.extra_tables = self.extra_tables
         obj.extra_order_by = self.extra_order_by
+        obj.extra_join = self.extra_join
         obj.deferred_loading = copy.deepcopy(self.deferred_loading, memo=memo)
         if self.filter_is_sticky and self.used_aliases:
             obj.used_aliases = self.used_aliases.copy()
@@ -411,7 +413,7 @@ class Query(object):
 
     def has_results(self, using):
         q = self.clone()
-        q.add_extra({'a': 1}, None, None, None, None, None)
+        q.add_extra({'a': 1}, None, None, None, None, None, None)
         q.select = []
         q.select_fields = []
         q.default_cols = False
@@ -1671,7 +1673,7 @@ class Query(object):
         self.related_select_cols = []
         self.related_select_fields = []
 
-    def add_extra(self, select, select_params, where, params, tables, order_by):
+    def add_extra(self, select, select_params, where, params, tables, order_by, join):
         """
         Adds data to the various extra_* attributes for user-created additions
         to the query.
@@ -1702,6 +1704,8 @@ class Query(object):
             self.extra_tables += tuple(tables)
         if order_by:
             self.extra_order_by = order_by
+        if join:
+            self.extra_join += tuple(join)
 
     def clear_deferred_loading(self):
         """
