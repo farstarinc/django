@@ -102,10 +102,6 @@ their deprecation, as per the :ref:`Django deprecation policy
         * Authentication backends need to define the boolean attribute
           ``supports_inactive_user``.
 
-        * The ``MEDIA_URL`` or ``STATIC_URL`` settings are required to end
-          with a trailing slash to ensure there is a consistent way to
-          combine paths in templates.
-
         * ``django.db.models.fields.XMLField`` will be removed. This was
           deprecated as part of the 1.3 release. An accelerated deprecation
           schedule has been used because the field hasn't performed any role
@@ -170,6 +166,18 @@ their deprecation, as per the :ref:`Django deprecation policy
           will be moved to :class:`django.contrib.auth.context_processors.PermWrapper`
           and :class:`django.contrib.auth.context_processors.PermLookupDict`,
           respectively.
+
+        * The ``MEDIA_URL`` or ``STATIC_URL`` settings are required to end
+          with a trailing slash to ensure there is a consistent way to
+          combine paths in templates.
+
+    * 1.6
+
+        * The compatibility modules ``django.utils.copycompat`` and
+          ``django.utils.hashcompat`` as well as the functions
+          ``django.utils.itercompat.all`` and ``django.utils.itercompat.any``
+          have been deprecated since the 1.4 release. The native versions
+          should be used instead.
 
     * 2.0
         * ``django.views.defaults.shortcut()``. This function has been moved

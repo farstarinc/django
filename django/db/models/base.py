@@ -1,5 +1,7 @@
-import types
+import copy
 import sys
+import types
+from functools import update_wrapper
 from itertools import izip
 
 import django.db.models.manager     # Imported to register signal handler.
@@ -17,8 +19,7 @@ from django.db import (connections, router, transaction, DatabaseError,
 from django.db.models import signals
 from django.db.models.loading import register_models, get_model
 from django.utils.translation import ugettext_lazy as _
-import django.utils.copycompat as copy
-from django.utils.functional import curry, update_wrapper
+from django.utils.functional import curry
 from django.utils.encoding import smart_str, force_unicode
 from django.utils.text import get_text_list, capfirst
 from django.conf import settings
@@ -397,7 +398,7 @@ class Model(object):
         model = self.__class__
         # The obvious thing to do here is to invoke super().__reduce__()
         # for the non-deferred case. Don't do that.
-        # On Python 2.4, there is something wierd with __reduce__,
+        # On Python 2.4, there is something weird with __reduce__,
         # and as a result, the super call will cause an infinite recursion.
         # See #10547 and #12121.
         defers = []

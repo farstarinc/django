@@ -389,7 +389,7 @@ class Templates(unittest.TestCase):
             try:
                 return (template_tests[template_name][0] , "test:%s" % template_name)
             except KeyError:
-                raise template.TemplateDoesNotExist, template_name
+                raise template.TemplateDoesNotExist(template_name)
 
         cache_loader = cached.Loader(('test_template_loader',))
         cache_loader._cached_loaders = (test_template_loader,)
@@ -1030,6 +1030,10 @@ class Templates(unittest.TestCase):
             'include10': ('{% include "basic-syntax03" only %}', {'first': '1'}, (' --- ', 'INVALID --- INVALID')),
             'include11': ('{% include "basic-syntax03" only with second=2 %}', {'first': '1'}, (' --- 2', 'INVALID --- 2')),
             'include12': ('{% include "basic-syntax03" with first=1 only %}', {'second': '2'}, ('1 --- ', '1 --- INVALID')),
+
+            # autoescape context
+            'include13': ('{% autoescape off %}{% include "basic-syntax03" %}{% endautoescape %}', {'first': '&'}, ('& --- ', '& --- INVALID')),
+            'include14': ('{% autoescape off %}{% include "basic-syntax03" with first=var1 only %}{% endautoescape %}', {'var1': '&'}, ('& --- ', '& --- INVALID')),
 
             'include-error01': ('{% include "basic-syntax01" with %}', {}, template.TemplateSyntaxError),
             'include-error02': ('{% include "basic-syntax01" with "no key" %}', {}, template.TemplateSyntaxError),

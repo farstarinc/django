@@ -49,7 +49,19 @@ class BasicExtractorTests(ExtractorTests):
         self.assertTrue('This comment should not be extracted' not in po_contents)
         # Comments in templates
         self.assertTrue('#. Translators: Django template comment for translators' in po_contents)
-        self.assertTrue('#. Translators: Django comment block for translators' in po_contents)
+        self.assertTrue("#. Translators: Django comment block for translators\n#. string's meaning unveiled" in po_contents)
+
+        self.assertTrue('#. Translators: One-line translator comment #1' in po_contents)
+        self.assertTrue('#. Translators: Two-line translator comment #1\n#. continued here.' in po_contents)
+
+        self.assertTrue('#. Translators: One-line translator comment #2' in po_contents)
+        self.assertTrue('#. Translators: Two-line translator comment #2\n#. continued here.' in po_contents)
+
+        self.assertTrue('#. Translators: One-line translator comment #3' in po_contents)
+        self.assertTrue('#. Translators: Two-line translator comment #3\n#. continued here.' in po_contents)
+
+        self.assertTrue('#. Translators: One-line translator comment #4' in po_contents)
+        self.assertTrue('#. Translators: Two-line translator comment #4\n#. continued here.' in po_contents)
 
     def test_templatize(self):
         os.chdir(self.test_dir)
@@ -63,11 +75,10 @@ class BasicExtractorTests(ExtractorTests):
         os.chdir(self.test_dir)
         shutil.copyfile('./templates/template_with_error.txt', './templates/template_with_error.html')
         self.assertRaises(SyntaxError, management.call_command, 'makemessages', locale=LOCALE, verbosity=0)
-        try: # TODO: Simplify this try/try block when we drop support for Python 2.4
-            try:
-                management.call_command('makemessages', locale=LOCALE, verbosity=0)
-            except SyntaxError, e:
-                self.assertEqual(str(e), 'Translation blocks must not include other block tags: blocktrans (file templates/template_with_error.html, line 3)')
+        try:
+            management.call_command('makemessages', locale=LOCALE, verbosity=0)
+        except SyntaxError, e:
+            self.assertEqual(str(e), 'Translation blocks must not include other block tags: blocktrans (file templates/template_with_error.html, line 3)')
         finally:
             os.remove('./templates/template_with_error.html')
             os.remove('./templates/template_with_error.html.py') # Waiting for #8536 to be fixed

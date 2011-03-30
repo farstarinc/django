@@ -2,7 +2,7 @@
 Managing database transactions
 ==============================
 
-.. currentmodule:: django.db.transaction
+.. module:: django.db.transaction
 
 Django gives you a few ways to control how database transactions are managed,
 if you're using a database that supports transactions.
@@ -73,7 +73,7 @@ These functions, described in detail below, can be used in two different ways:
 
             from django.db import transaction
 
-            @transaction.commit_on_success()
+            @transaction.commit_on_success
             def viewfunc(request):
                 # ...
                 # this code executes inside a transaction

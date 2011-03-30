@@ -262,14 +262,18 @@ class HttpRequest(object):
         if self.method != 'POST':
             self._post, self._files = QueryDict('', encoding=self._encoding), MultiValueDict()
             return
-        if self._read_started:
+        if self._read_started and not hasattr(self, '_raw_post_data'):
             self._mark_post_parse_error()
             return
 
         if self.META.get('CONTENT_TYPE', '').startswith('multipart'):
-            self._raw_post_data = ''
+            if hasattr(self, '_raw_post_data'):
+                # Use already read data
+                data = StringIO(self._raw_post_data)
+            else:
+                data = self
             try:
-                self._post, self._files = self.parse_file_upload(self.META, self)
+                self._post, self._files = self.parse_file_upload(self.META, data)
             except:
                 # An error occured while parsing POST data.  Since when
                 # formatting the error the request handler might access
@@ -326,9 +330,6 @@ class QueryDict(MultiValueDict):
     def __init__(self, query_string, mutable=False, encoding=None):
         MultiValueDict.__init__(self)
         if not encoding:
-            # *Important*: do not import settings any earlier because of note
-            # in core.handlers.modpython.
-            from django.conf import settings
             encoding = settings.DEFAULT_CHARSET
         self.encoding = encoding
         for key, value in parse_qsl((query_string or ''), True): # keep_blank_values=True
@@ -338,9 +339,6 @@ class QueryDict(MultiValueDict):
 
     def _get_encoding(self):
         if self._encoding is None:
-            # *Important*: do not import settings at the module level because
-            # of the note in core.handlers.modpython.
-            from django.conf import settings
             self._encoding = settings.DEFAULT_CHARSET
         return self._encoding
 
@@ -370,7 +368,7 @@ class QueryDict(MultiValueDict):
         return result
 
     def __deepcopy__(self, memo):
-        import django.utils.copycompat as copy
+        import copy
         result = self.__class__('', mutable=True, encoding=self.encoding)
         memo[id(self)] = result
         for key, value in dict.items(self):
@@ -634,14 +632,14 @@ class HttpResponseRedirect(HttpResponse):
     status_code = 302
 
     def __init__(self, redirect_to):
-        HttpResponse.__init__(self)
+        super(HttpResponseRedirect, self).__init__()
         self['Location'] = iri_to_uri(redirect_to)
 
 class HttpResponsePermanentRedirect(HttpResponse):
     status_code = 301
 
     def __init__(self, redirect_to):
-        HttpResponse.__init__(self)
+        super(HttpResponsePermanentRedirect, self).__init__()
         self['Location'] = iri_to_uri(redirect_to)
 
 class HttpResponseNotModified(HttpResponse):
@@ -660,20 +658,14 @@ class HttpResponseNotAllowed(HttpResponse):
     status_code = 405
 
     def __init__(self, permitted_methods):
-        HttpResponse.__init__(self)
+        super(HttpResponseNotAllowed, self).__init__()
         self['Allow'] = ', '.join(permitted_methods)
 
 class HttpResponseGone(HttpResponse):
     status_code = 410
 
-    def __init__(self, *args, **kwargs):
-        HttpResponse.__init__(self, *args, **kwargs)
-
 class HttpResponseServerError(HttpResponse):
     status_code = 500
-
-    def __init__(self, *args, **kwargs):
-        HttpResponse.__init__(self, *args, **kwargs)
 
 # A backwards compatible alias for HttpRequest.get_host.
 def get_host(request):

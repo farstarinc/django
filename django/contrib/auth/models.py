@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import urllib
 
 from django.contrib import auth
@@ -8,8 +9,8 @@ from django.db import models
 from django.db.models.manager import EmptyManager
 from django.contrib.contenttypes.models import ContentType
 from django.utils.encoding import smart_str
-from django.utils.hashcompat import md5_constructor, sha_constructor
 from django.utils.translation import ugettext_lazy as _
+from django.utils.crypto import constant_time_compare
 
 
 UNUSABLE_PASSWORD = '!' # This will never be a valid hash
@@ -28,9 +29,9 @@ def get_hexdigest(algorithm, salt, raw_password):
         return crypt.crypt(raw_password, salt)
 
     if algorithm == 'md5':
-        return md5_constructor(salt + raw_password).hexdigest()
+        return hashlib.md5(salt + raw_password).hexdigest()
     elif algorithm == 'sha1':
-        return sha_constructor(salt + raw_password).hexdigest()
+        return hashlib.sha1(salt + raw_password).hexdigest()
     raise ValueError("Got unknown password algorithm type in password.")
 
 def check_password(raw_password, enc_password):
@@ -39,7 +40,7 @@ def check_password(raw_password, enc_password):
     encryption formats behind the scenes.
     """
     algo, salt, hsh = enc_password.split('$')
-    return hsh == get_hexdigest(algo, salt, raw_password)
+    return constant_time_compare(hsh, get_hexdigest(algo, salt, raw_password))
 
 def update_last_login(sender, user, **kwargs):
     """

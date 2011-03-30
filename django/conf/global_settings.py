@@ -57,6 +57,7 @@ LANGUAGES = (
     ('es', gettext_noop('Spanish')),
     ('es-ar', gettext_noop('Argentinian Spanish')),
     ('es-mx', gettext_noop('Mexican Spanish')),
+    ('es-ni', gettext_noop('Nicaraguan Spanish')),
     ('et', gettext_noop('Estonian')),
     ('eu', gettext_noop('Basque')),
     ('fa', gettext_noop('Persian')),
@@ -468,10 +469,6 @@ COMMENTS_SKETCHY_USERS_GROUP = None
 # The system will e-mail MANAGERS the first COMMENTS_FIRST_FEW comments by each
 # user. Set this to 0 if you want to disable it.
 COMMENTS_FIRST_FEW = 0
-
-# A tuple of IP addresses that have been banned from participating in various
-# Django-powered features.
-BANNED_IPS = ()
 
 ##################
 # AUTHENTICATION #

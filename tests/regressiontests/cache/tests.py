@@ -3,6 +3,7 @@
 # Unit tests for cache framework
 # Uses whatever cache backend is set in the test settings file.
 
+import hashlib
 import os
 import tempfile
 import time
@@ -19,7 +20,6 @@ from django.test.utils import get_warnings_state, restore_warnings_state
 from django.utils import translation
 from django.utils import unittest
 from django.utils.cache import patch_vary_headers, get_cache_key, learn_cache_key
-from django.utils.hashcompat import md5_constructor
 from django.views.decorators.cache import cache_page
 
 from regressiontests.cache.models import Poll, expensive_calculation
@@ -317,8 +317,22 @@ class BaseCacheTests(object):
             u'Iñtërnâtiônàlizætiøn': u'Iñtërnâtiônàlizætiøn2',
             u'ascii': {u'x' : 1 }
             }
+        # Test `set`
         for (key, value) in stuff.items():
             self.cache.set(key, value)
+            self.assertEqual(self.cache.get(key), value)
+
+        # Test `add`
+        for (key, value) in stuff.items():
+            self.cache.delete(key)
+            self.cache.add(key, value)
+            self.assertEqual(self.cache.get(key), value)
+
+        # Test `set_many`
+        for (key, value) in stuff.items():
+            self.cache.delete(key)
+        self.cache.set_many(stuff)
+        for (key, value) in stuff.items():
             self.assertEqual(self.cache.get(key), value)
 
     def test_binary_string(self):
@@ -326,8 +340,22 @@ class BaseCacheTests(object):
         from zlib import compress, decompress
         value = 'value_to_be_compressed'
         compressed_value = compress(value)
+
+        # Test set
         self.cache.set('binary1', compressed_value)
         compressed_result = self.cache.get('binary1')
+        self.assertEqual(compressed_value, compressed_result)
+        self.assertEqual(value, decompress(compressed_result))
+
+        # Test add
+        self.cache.add('binary1-add', compressed_value)
+        compressed_result = self.cache.get('binary1-add')
+        self.assertEqual(compressed_value, compressed_result)
+        self.assertEqual(value, decompress(compressed_result))
+
+        # Test set_many
+        self.cache.set_many({'binary1-set_many': compressed_value})
+        compressed_result = self.cache.get('binary1-set_many')
         self.assertEqual(compressed_value, compressed_result)
         self.assertEqual(value, decompress(compressed_result))
 
@@ -822,7 +850,7 @@ class FileBasedCacheTests(unittest.TestCase, BaseCacheTests):
         """Test that keys are hashed into subdirectories correctly"""
         self.cache.set("foo", "bar")
         key = self.cache.make_key("foo")
-        keyhash = md5_constructor(key).hexdigest()
+        keyhash = hashlib.md5(key).hexdigest()
         keypath = os.path.join(self.dirname, keyhash[:2], keyhash[2:4], keyhash[4:])
         self.assertTrue(os.path.exists(keypath))
 
@@ -832,7 +860,7 @@ class FileBasedCacheTests(unittest.TestCase, BaseCacheTests):
         """
         self.cache.set("foo", "bar")
         key = self.cache.make_key("foo")
-        keyhash = md5_constructor(key).hexdigest()
+        keyhash = hashlib.md5(key).hexdigest()
         keypath = os.path.join(self.dirname, keyhash[:2], keyhash[2:4], keyhash[4:])
         self.assertTrue(os.path.exists(keypath))
 
