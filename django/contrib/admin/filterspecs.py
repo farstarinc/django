@@ -17,27 +17,8 @@ import datetime
 
 class FilterSpec(object):
     filter_specs = []
-    def __init__(self, f, request, params, model, model_admin,
-                 field_path=None):
-        self.field = f
+    def __init__(self, request, params, model, model_admin):
         self.params = params
-        self.field_path = field_path
-        if field_path is None:
-            if isinstance(f, models.related.RelatedObject):
-                self.field_path = f.var_name
-            else:
-                self.field_path = f.name
-
-    def register(cls, test, factory):
-        cls.filter_specs.append((test, factory))
-    register = classmethod(register)
-
-    def create(cls, f, request, params, model, model_admin, field_path=None):
-        for test, factory in cls.filter_specs:
-            if test(f):
-                return factory(f, request, params, model, model_admin,
-                               field_path=field_path)
-    create = classmethod(create)
 
     def has_output(self):
         return True
@@ -46,7 +27,20 @@ class FilterSpec(object):
         raise NotImplementedError()
 
     def title(self):
-        return self.field.verbose_name
+        raise NotImplementedError()
+
+    def get_query_set(self, cl, qs):
+        return False
+    
+    def consumed_params(self):
+        """
+        Return a list of parameters to consume from the change list querystring.
+        
+        Override this for non-field based FilterSpecs subclasses in order
+        to consume custom GET parameters, as any GET parameters that are not
+        consumed and are not a field name raises an exception.
+        """
+        return []
 
     def output(self, cl):
         t = []
@@ -61,7 +55,41 @@ class FilterSpec(object):
             t.append('</ul>\n\n')
         return mark_safe("".join(t))
 
-class RelatedFilterSpec(FilterSpec):
+
+class FieldFilterSpec(FilterSpec):
+    field_filter_specs = []
+    _high_priority_index = 0
+
+    def __init__(self, f, request, params, model, model_admin, field_path=None):
+        super(FieldFilterSpec, self).__init__(request, params, model, model_admin)
+        self.field = f
+        self.field_path = field_path
+        if self.field_path is None:
+            if isinstance(f, models.related.RelatedObject):
+                self.field_path = f.var_name
+            else:
+                self.field_path = f.name
+
+    def title(self):
+        return self.field.verbose_name
+
+    def register(cls, test, factory, high_priority=True):
+        if high_priority:
+            cls.field_filter_specs.insert(cls._high_priority_index, (test, factory))
+            cls._high_priority_index += 1
+        else:
+            cls.field_filter_specs.append((test, factory))
+    register = classmethod(register)
+
+    def create(cls, f, request, params, model, model_admin, field_path=None):
+        for test, factory in cls.field_filter_specs:
+            if test(f):
+                return factory(f, request, params, model, model_admin,
+                               field_path=field_path)
+    create = classmethod(create)
+
+        
+class RelatedFilterSpec(FieldFilterSpec):
     def __init__(self, f, request, params, model, model_admin,
                  field_path=None):
         super(RelatedFilterSpec, self).__init__(
@@ -117,11 +145,11 @@ class RelatedFilterSpec(FilterSpec):
                                    [self.lookup_kwarg]),
                    'display': EMPTY_CHANGELIST_VALUE}
 
-FilterSpec.register(lambda f: (
+FieldFilterSpec.register(lambda f: (
         hasattr(f, 'rel') and bool(f.rel) or
-        isinstance(f, models.related.RelatedObject)), RelatedFilterSpec)
+        isinstance(f, models.related.RelatedObject)), RelatedFilterSpec, False)
 
-class BooleanFieldFilterSpec(FilterSpec):
+class BooleanFieldFilterSpec(FieldFilterSpec):
     def __init__(self, f, request, params, model, model_admin,
                  field_path=None):
         super(BooleanFieldFilterSpec, self).__init__(f, request, params, model,
@@ -131,9 +159,6 @@ class BooleanFieldFilterSpec(FilterSpec):
         self.lookup_kwarg2 = '%s__isnull' % self.field_path
         self.lookup_val = request.GET.get(self.lookup_kwarg, None)
         self.lookup_val2 = request.GET.get(self.lookup_kwarg2, None)
-
-    def title(self):
-        return self.field.verbose_name
 
     def choices(self, cl):
         for k, v in ((_('All'), None), (_('Yes'), '1'), (_('No'), '0')):
@@ -149,11 +174,10 @@ class BooleanFieldFilterSpec(FilterSpec):
                                    [self.lookup_kwarg]),
                    'display': _('Unknown')}
 
-FilterSpec.register(lambda f: isinstance(f, models.BooleanField)
-                              or isinstance(f, models.NullBooleanField),
-                                 BooleanFieldFilterSpec)
-
-class ChoicesFilterSpec(FilterSpec):
+FieldFilterSpec.register(lambda f: isinstance(f, models.BooleanField) 
+                                   or isinstance(f, models.NullBooleanField), 
+                                      BooleanFieldFilterSpec, False)
+class ChoicesFilterSpec(FieldFilterSpec):
     def __init__(self, f, request, params, model, model_admin,
                  field_path=None):
         super(ChoicesFilterSpec, self).__init__(f, request, params, model,
@@ -172,9 +196,9 @@ class ChoicesFilterSpec(FilterSpec):
                                     {self.lookup_kwarg: k}),
                     'display': v}
 
-FilterSpec.register(lambda f: bool(f.choices), ChoicesFilterSpec)
+FieldFilterSpec.register(lambda f: bool(f.choices), ChoicesFilterSpec, False)
 
-class DateFieldFilterSpec(FilterSpec):
+class DateFieldFilterSpec(FieldFilterSpec):
     def __init__(self, f, request, params, model, model_admin,
                  field_path=None): 
         super(DateFieldFilterSpec, self).__init__(f, request, params, model,
@@ -205,9 +229,6 @@ class DateFieldFilterSpec(FilterSpec):
             (_('This year'), {'%s__year' % self.field_path: str(today.year)})
         )
 
-    def title(self):
-        return self.field.verbose_name
-
     def choices(self, cl):
         for title, param_dict in self.links:
             yield {'selected': self.date_params == param_dict,
@@ -216,14 +237,13 @@ class DateFieldFilterSpec(FilterSpec):
                                    [self.field_generic]),
                    'display': title}
 
-FilterSpec.register(lambda f: isinstance(f, models.DateField),
-                              DateFieldFilterSpec)
-
+FieldFilterSpec.register(lambda f: isinstance(f, models.DateField), 
+                                   DateFieldFilterSpec, False)
 
 # This should be registered last, because it's a last resort. For example,
 # if a field is eligible to use the BooleanFieldFilterSpec, that'd be much
 # more appropriate, and the AllValuesFilterSpec won't get used for it.
-class AllValuesFilterSpec(FilterSpec):
+class AllValuesFilterSpec(FieldFilterSpec):
     def __init__(self, f, request, params, model, model_admin,
                  field_path=None):
         super(AllValuesFilterSpec, self).__init__(f, request, params, model,
@@ -244,9 +264,6 @@ class AllValuesFilterSpec(FilterSpec):
 
         self.lookup_choices = \
             queryset.distinct().order_by(f.name).values_list(f.name, flat=True)
-
-    def title(self):
-        return self.field.verbose_name
 
     def choices(self, cl):
         from django.contrib.admin.views.main import EMPTY_CHANGELIST_VALUE
@@ -276,4 +293,4 @@ class AllValuesFilterSpec(FilterSpec):
                                     [self.lookup_kwarg]),
                     'display': EMPTY_CHANGELIST_VALUE}
 
-FilterSpec.register(lambda f: True, AllValuesFilterSpec)
+FieldFilterSpec.register(lambda f: True, AllValuesFilterSpec, False)
