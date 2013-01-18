@@ -436,6 +436,8 @@ class Options(object):
         """
         if not self.parents:
             return
+        if model._meta is self:
+            return
         if model in self.parents:
             return [model]
         for parent in self.parents:
